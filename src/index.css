@@ -1,0 +1,23 @@
+@import "tailwindcss";
+
+@theme {
+  --color-waste-paper: #3B82F6;
+  --color-waste-plastic: #FACC15;
+  --color-waste-glass: #22C55E;
+  --color-waste-metal: #6B7280;
+  --color-waste-household: #F97316;
+}
+
+body {
+  margin: 0;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* Base styles for the entire app */
+@layer base {
+  html, body, #root {
+    @apply w-full h-full;
+  }
+}
