@@ -1,0 +1,37 @@
+services:
+  backend:
+    build:
+      context: ./backend
+    container_name: sw-backend
+    restart: unless-stopped
+    environment:
+      JWT_SECRET: ${JWT_SECRET:?JWT_SECRET set edilmemis}
+      AUTH_USERNAME: ${AUTH_USERNAME:-admin}
+      AUTH_PASSWORD_HASH: ${AUTH_PASSWORD_HASH:?AUTH_PASSWORD_HASH set edilmemis}
+      JWT_EXPIRE_MINUTES: ${JWT_EXPIRE_MINUTES:-60}
+      IOT_API_KEY: ${IOT_API_KEY:?IOT_API_KEY set edilmemis}
+      ALLOWED_ORIGINS: ${ALLOWED_ORIGINS:-http://localhost:8080}
+    expose:
+      - "8000"
+    # Model dosyasi imaj icine gomulur (backend/model/best.pt).
+    # Volume ile mount edilmek istenirse asagidaki satiri ac:
+    # volumes:
+    #   - ./backend/model:/app/model:ro
+    networks:
+      - sw-net
+
+  frontend:
+    build:
+      context: .
+    container_name: sw-frontend
+    restart: unless-stopped
+    depends_on:
+      - backend
+    ports:
+      - "8080:80"
+    networks:
+      - sw-net
+
+networks:
+  sw-net:
+    driver: bridge

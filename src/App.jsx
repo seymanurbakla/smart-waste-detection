@@ -1,18 +1,38 @@
-import React, { useState } from 'react';
+import React, { useState, useCallback, useEffect } from 'react';
 import { AnimatePresence } from 'framer-motion';
 
 // Components
+import LoginScreen from './components/LoginScreen';
 import HomeScreen from './components/HomeScreen';
 import CameraScreen from './components/CameraScreen';
 import UploadScreen from './components/UploadScreen';
 import ResultScreen from './components/ResultScreen';
 import ErrorScreen from './components/ErrorScreen';
 
+const TOKEN_KEY = 'sw_auth_token';
+
 export default function App() {
+  const [token, setToken] = useState(() => localStorage.getItem(TOKEN_KEY));
   const [currentScreen, setCurrentScreen] = useState('camera');
   const [predictionResult, setPredictionResult] = useState(null);
   const [analyzedImage, setAnalyzedImage] = useState(null);
-  const [isLoading, setIsLoading] = useState(false);
+
+  useEffect(() => {
+    if (token) localStorage.setItem(TOKEN_KEY, token);
+    else localStorage.removeItem(TOKEN_KEY);
+  }, [token]);
+
+  const handleLoginSuccess = (newToken) => {
+    setToken(newToken);
+    setCurrentScreen('camera');
+  };
+
+  // 401 alındığında çağrılır; token temizlenir, login ekranına döner.
+  const handleUnauthorized = useCallback(() => {
+    setToken(null);
+    setPredictionResult(null);
+    setAnalyzedImage(null);
+  }, []);
 
   const navigateTo = (screen) => {
     setCurrentScreen(screen);
@@ -28,15 +48,27 @@ export default function App() {
     setCurrentScreen('result');
   };
 
+  if (!token) {
+    return (
+      <div className="w-full min-h-screen overflow-hidden font-sans">
+        <AnimatePresence mode="wait">
+          <LoginScreen key="login" onLoginSuccess={handleLoginSuccess} />
+        </AnimatePresence>
+      </div>
+    );
+  }
+
   return (
     <div className="w-full min-h-screen bg-black overflow-hidden font-sans">
       <AnimatePresence mode="wait">
 
         {currentScreen === 'camera' && (
-          <CameraScreen 
-            key="camera" 
-            onNavigate={navigateTo} 
+          <CameraScreen
+            key="camera"
+            token={token}
+            onNavigate={navigateTo}
             onResultReady={handleResultReady}
+            onUnauthorized={handleUnauthorized}
           />
         )}
 
@@ -48,7 +80,7 @@ export default function App() {
         )}
 
         {currentScreen === 'result' && predictionResult && (
-          <ResultScreen 
+          <ResultScreen
             key="result"
             result={predictionResult}
             imageSrc={analyzedImage}

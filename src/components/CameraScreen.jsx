@@ -2,7 +2,7 @@ import React, { useRef, useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { Camera, X, Loader2, Send } from 'lucide-react';
 
-export default function CameraScreen({ onNavigate, onResultReady }) {
+export default function CameraScreen({ token, onNavigate, onResultReady, onUnauthorized }) {
   const videoRef = useRef(null);
   const [hasPermission, setHasPermission] = useState(null);
   const [stream, setStream] = useState(null);
@@ -63,11 +63,23 @@ export default function CameraScreen({ onNavigate, onResultReady }) {
     try {
       const response = await fetch('/api/predict', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ image: frameSrc })
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
+        },
+        body: JSON.stringify({ image: frameSrc, source: 'camera' })
       });
+
+      if (response.status === 401) {
+        onUnauthorized?.();
+        return;
+      }
+
+      // Slot dolu (409) ise sessizce geç — bir sonraki frame'de tekrar denenir.
+      if (response.status === 409) return;
+
       const data = await response.json();
-      
+
       if (response.ok && data.class && data.class !== 'unknown' && data.confidence >= 0.05) {
         setDetection(data);
         setLastFrame(frameSrc);
