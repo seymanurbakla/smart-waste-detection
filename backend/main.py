@@ -2,6 +2,7 @@ import asyncio
 import base64
 import io
 import os
+import threading
 from datetime import datetime, timedelta, timezone
 from typing import Literal, Optional
 
@@ -107,16 +108,35 @@ def require_iot_key(x_api_key: Optional[str] = Header(default=None)):
     if x_api_key != IOT_API_KEY:
         raise HTTPException(status_code=401, detail="Gecersiz API key.")
 
-try:
-    if os.path.exists(MODEL_PATH):
+# Model arka plan thread'de yuklenir; uvicorn boot'ta blocking olmasin.
+# Boylelikle Railway port'u hemen acik gorur, healthcheck patlamaz.
+model = None
+_model_load_error: Optional[str] = None
+
+
+def _load_model_background() -> None:
+    global model, _model_load_error
+    try:
+        if not os.path.exists(MODEL_PATH):
+            _model_load_error = f"Model bulunamadi -> {MODEL_PATH}"
+            print(f"UYARI: {_model_load_error}")
+            return
+        print("Model yukleniyor (arka plan)...")
         model = YOLO(MODEL_PATH)
         print("Model basariyla yuklendi!")
-    else:
-        print(f"UYARI: Model bulunamadi -> {MODEL_PATH}")
-        model = None
-except Exception as e:
-    print(f"Model yuklenirken hata olustu: {e}")
-    model = None
+    except Exception as e:
+        _model_load_error = str(e)
+        print(f"Model yuklenirken hata olustu: {e}")
+
+
+@app.on_event("startup")
+def _kickoff_model_load() -> None:
+    threading.Thread(target=_load_model_background, daemon=True).start()
+
+
+@app.get("/")
+def health() -> dict:
+    return {"status": "ok", "model_ready": model is not None}
 
 class ImagePayload(BaseModel):
     image: str
@@ -152,7 +172,9 @@ async def predict_waste(payload: ImagePayload):
     global _slot, _busy
 
     if model is None:
-        raise HTTPException(status_code=500, detail="Model bulunamadi. Lutfen best.pt dosyasini backend/model/ klasorune yukleyin.")
+        if _model_load_error:
+            raise HTTPException(status_code=500, detail=f"Model yuklenemedi: {_model_load_error}")
+        raise HTTPException(status_code=503, detail="Model henuz hazir degil, birkac saniye sonra tekrar deneyin.")
 
     # Slotu rezerve et: ya slot dolu ya da baska bir inference suruyorsa reddet.
     reserved = False
