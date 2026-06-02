@@ -1,5 +1,5 @@
 /*
- * Smart Waste Detection — NodeMCU (ESP8266) firmware
+ * Smart Waste Detection - NodeMCU (ESP8266) firmware
  *
  * Rol: NodeMCU hem WiFi AP yayinlar hem servolari surer.
  *
@@ -97,19 +97,19 @@ void moveBinClosedToOpenAndBack(Bin& b) {
 
 void openBin(const char* name) {
   if (servoBusy) {
-    Serial.printf("[BIN] mesgul, '%s' istegi reddedildi\n", name);
+    Serial.printf("[BIN] mesgul, '%s' istegi reddedildi\r\n", name);
     return;
   }
   for (size_t i = 0; i < BIN_COUNT; i++) {
     if (strcmp(bins[i].name, name) == 0) {
-      Serial.printf("[BIN] %s aciliyor (GPIO%u)\n", name, bins[i].pin);
+      Serial.printf("[BIN] %s aciliyor (GPIO%u)\r\n", name, bins[i].pin);
       servoBusy = true;
       moveBinClosedToOpenAndBack(bins[i]);
       servoBusy = false;
       return;
     }
   }
-  Serial.printf("[BIN] bilinmeyen bin: %s\n", name);
+  Serial.printf("[BIN] bilinmeyen bin: %s\r\n", name);
 }
 
 // --- AP + DHCP kurulumu ---
@@ -137,9 +137,9 @@ void setupAccessPoint() {
   }
   wifi_softap_dhcps_start();
 
-  Serial.printf("[AP] SSID=%s\n", AP_SSID);
-  Serial.printf("[AP] IP=%s\n", WiFi.softAPIP().toString().c_str());
-  Serial.printf("[AP] Client'a verilecek IP=%s\n", CLIENT_IP.toString().c_str());
+  Serial.printf("[AP] SSID=%s\r\n", AP_SSID);
+  Serial.printf("[AP] IP=%s\r\n", WiFi.softAPIP().toString().c_str());
+  Serial.printf("[AP] Client'a verilecek IP=%s\r\n", CLIENT_IP.toString().c_str());
 }
 
 // --- HTTP polling ---
@@ -148,7 +148,7 @@ void setupAccessPoint() {
 void logStationChange() {
   uint8_t n = WiFi.softAPgetStationNum();
   if (n != lastStationNum) {
-    Serial.printf("[AP] station sayisi %u -> %u\n", lastStationNum, n);
+    Serial.printf("[AP] station sayisi %u -> %u\r\n", lastStationNum, n);
     lastStationNum = n;
   }
 }
@@ -159,7 +159,7 @@ bool fetchPrediction(String& outBin) {
   pollCount++;
 
   uint8_t stations = WiFi.softAPgetStationNum();
-  Serial.printf("[poll #%u] uptime=%lu ms, stations=%u, free heap=%u\n",
+  Serial.printf("[poll #%u] uptime=%lu ms, stations=%u, free heap=%u\r\n",
                 pollCount, millis(), stations, ESP.getFreeHeap());
 
   if (stations == 0) {
@@ -167,7 +167,7 @@ bool fetchPrediction(String& outBin) {
     return false;
   }
 
-  Serial.printf("[poll] -> GET %s\n", BACKEND_URL);
+  Serial.printf("[poll] -> GET %s\r\n", BACKEND_URL);
 
   WiFiClient client;
   HTTPClient http;
@@ -183,10 +183,10 @@ bool fetchPrediction(String& outBin) {
 
   int code = http.GET();
   uint32_t dt = millis() - t0;
-  Serial.printf("[HTTP] response: code=%d, sure=%lu ms\n", code, dt);
+  Serial.printf("[HTTP] response: code=%d, sure=%lu ms\r\n", code, dt);
 
   if (code <= 0) {
-    Serial.printf("[HTTP] hata: %s\n", http.errorToString(code).c_str());
+    Serial.printf("[HTTP] hata: %s\r\n", http.errorToString(code).c_str());
     http.end();
     return false;
   }
@@ -196,21 +196,21 @@ bool fetchPrediction(String& outBin) {
     return false;
   }
   if (code != 200) {
-    Serial.printf("[HTTP] beklenmeyen kod %d\n", code);
+    Serial.printf("[HTTP] beklenmeyen kod %d\r\n", code);
     String body = http.getString();
-    Serial.printf("[HTTP] body: %s\n", body.c_str());
+    Serial.printf("[HTTP] body: %s\r\n", body.c_str());
     http.end();
     return false;
   }
 
   String body = http.getString();
   http.end();
-  Serial.printf("[HTTP] 200 OK, body=%s\n", body.c_str());
+  Serial.printf("[HTTP] 200 OK, body=%s\r\n", body.c_str());
 
   JsonDocument doc;
   DeserializationError err = deserializeJson(doc, body);
   if (err) {
-    Serial.printf("[JSON] parse hatasi: %s\n", err.c_str());
+    Serial.printf("[JSON] parse hatasi: %s\r\n", err.c_str());
     return false;
   }
 
@@ -223,7 +223,7 @@ bool fetchPrediction(String& outBin) {
     Serial.println("[JSON] prediction var ama bin alani yok");
     return true;
   }
-  Serial.printf("[JSON] bin=%s\n", bin);
+  Serial.printf("[JSON] bin=%s\r\n", bin);
   outBin = bin;
   return true;
 }
@@ -231,7 +231,7 @@ bool fetchPrediction(String& outBin) {
 // --- setup / loop ---
 
 void setup() {
-  Serial.begin(115200);
+  Serial.begin(9600);
   delay(200);
 
   // Servolari sirayla CLOSED konumuna al, sonra detach.
@@ -256,15 +256,15 @@ void loop() {
   if (ok) {
     backoffMs = POLL_MS;
     if (bin.length() > 0) {
-      Serial.printf("[loop] bin '%s' islenecek\n", bin.c_str());
+      Serial.printf("[loop] bin '%s' islenecek\r\n", bin.c_str());
       openBin(bin.c_str());
     }
   } else {
     // Debug sirasinda backoff'u kucuk tut (max 5 sn) — uretimde 60 sn'ydi.
     backoffMs = min<uint32_t>(backoffMs * 2, 5000UL);
-    Serial.printf("[loop] basarisiz, sonraki polling %u ms sonra\n", backoffMs);
+    Serial.printf("[loop] basarisiz, sonraki polling %u ms sonra\r\n", backoffMs);
   }
 
-  Serial.printf("[loop] %u ms uyuyor\n\n", backoffMs);
+  Serial.printf("[loop] %u ms uyuyor\r\n\r\n", backoffMs);
   delay(backoffMs);
 }
