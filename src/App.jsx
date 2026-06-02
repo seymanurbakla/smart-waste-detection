@@ -27,9 +27,11 @@ export default function App() {
     setCurrentScreen('camera');
   };
 
-  // DUMMY LOGIN — 401 gelse de login ekranına atma, kullaniciyi disari atmiyoruz.
+  // 401 alındığında çağrılır; token temizlenir, login ekranına döner.
   const handleUnauthorized = useCallback(() => {
-    // no-op
+    setToken(null);
+    setPredictionResult(null);
+    setAnalyzedImage(null);
   }, []);
 
   const navigateTo = (screen) => {
