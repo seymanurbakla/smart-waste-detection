@@ -10,6 +10,7 @@ export default function CameraScreen({ token, onNavigate, onResultReady, onUnaut
   // States for live detection
   const [detection, setDetection] = useState(null);
   const [lastFrame, setLastFrame] = useState(null);
+  const [resetting, setResetting] = useState(false);
 
   useEffect(() => {
     let activeStream;
@@ -97,7 +98,6 @@ export default function CameraScreen({ token, onNavigate, onResultReady, onUnaut
     }
   };
 
-  const [resetting, setResetting] = useState(false);
   const handleReset = async () => {
     if (resetting) return;
     setResetting(true);
@@ -141,7 +141,7 @@ export default function CameraScreen({ token, onNavigate, onResultReady, onUnaut
       className="min-h-screen bg-gray-900 flex flex-col relative"
     >
       {/* Top Bar */}
-      <div className="absolute top-0 left-0 right-0 p-6 z-20 flex justify-between items-center text-white pt-10">
+      <div className="absolute top-0 left-0 right-0 p-6 z-20 flex justify-center items-center text-white pt-10">
         <span className="font-bold text-2xl bg-black/60 px-6 py-3 rounded-full backdrop-blur-md shadow-lg border border-white/20">
           Hadi Atığını Göster!
         </span>
@@ -149,7 +149,7 @@ export default function CameraScreen({ token, onNavigate, onResultReady, onUnaut
           onClick={handleReset}
           disabled={resetting}
           title="Slot'u sifirla"
-          className="bg-black/60 hover:bg-black/80 backdrop-blur-md border border-white/20 rounded-full p-3 shadow-lg disabled:opacity-50"
+          className="absolute right-6 top-10 bg-black/60 hover:bg-black/80 backdrop-blur-md border border-white/20 rounded-full p-3 shadow-lg disabled:opacity-50"
         >
           <RefreshCw size={20} className={resetting ? 'animate-spin' : ''} />
         </button>
