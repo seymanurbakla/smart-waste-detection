@@ -12,23 +12,11 @@ export default function LoginScreen({ onLoginSuccess }) {
     e.preventDefault();
     setError(null);
     setLoading(true);
-    try {
-      const res = await fetch('/api/auth/login', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ username, password }),
-      });
-      if (!res.ok) {
-        const data = await res.json().catch(() => ({}));
-        throw new Error(data.detail || 'Giriş başarısız.');
-      }
-      const data = await res.json();
-      onLoginSuccess(data.access_token);
-    } catch (err) {
-      setError(err.message || 'Bir hata oluştu.');
-    } finally {
+    // DUMMY LOGIN — backend'e gitmeden direkt yönlendir.
+    setTimeout(() => {
+      onLoginSuccess('dummy-token');
       setLoading(false);
-    }
+    }, 200);
   };
 
   return (
