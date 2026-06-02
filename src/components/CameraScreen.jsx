@@ -1,6 +1,6 @@
 import React, { useRef, useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { Camera, X, Loader2, Send } from 'lucide-react';
+import { Camera, X, Loader2, Send, RefreshCw } from 'lucide-react';
 
 export default function CameraScreen({ token, onNavigate, onResultReady, onUnauthorized }) {
   const videoRef = useRef(null);
@@ -97,6 +97,28 @@ export default function CameraScreen({ token, onNavigate, onResultReady, onUnaut
     }
   };
 
+  const [resetting, setResetting] = useState(false);
+  const handleReset = async () => {
+    if (resetting) return;
+    setResetting(true);
+    try {
+      const res = await fetch('/api/reset-slot', {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${token}` },
+      });
+      if (res.status === 401) {
+        onUnauthorized?.();
+        return;
+      }
+      setDetection(null);
+      setLastFrame(null);
+    } catch (err) {
+      console.error('Reset failed', err);
+    } finally {
+      setResetting(false);
+    }
+  };
+
   if (hasPermission === false) {
     return (
       <div className="min-h-screen bg-gray-900 flex flex-col items-center justify-center p-6 text-center">
@@ -119,10 +141,18 @@ export default function CameraScreen({ token, onNavigate, onResultReady, onUnaut
       className="min-h-screen bg-gray-900 flex flex-col relative"
     >
       {/* Top Bar */}
-      <div className="absolute top-0 left-0 right-0 p-6 z-20 flex justify-center items-center text-white pt-10">
+      <div className="absolute top-0 left-0 right-0 p-6 z-20 flex justify-between items-center text-white pt-10">
         <span className="font-bold text-2xl bg-black/60 px-6 py-3 rounded-full backdrop-blur-md shadow-lg border border-white/20">
           Hadi Atığını Göster!
         </span>
+        <button
+          onClick={handleReset}
+          disabled={resetting}
+          title="Slot'u sifirla"
+          className="bg-black/60 hover:bg-black/80 backdrop-blur-md border border-white/20 rounded-full p-3 shadow-lg disabled:opacity-50"
+        >
+          <RefreshCw size={20} className={resetting ? 'animate-spin' : ''} />
+        </button>
       </div>
 
       {/* Center Camera View */}

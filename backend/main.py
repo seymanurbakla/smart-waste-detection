@@ -243,6 +243,16 @@ async def predict_waste(payload: ImagePayload):
         raise HTTPException(status_code=400, detail=str(e))
 
 
+@app.post("/reset-slot", dependencies=[Depends(require_user)])
+async def reset_slot():
+    """Frontend'in slot'u ve busy bayragini elle sifirlamasini saglar (409 sonrasi recover)."""
+    global _slot, _busy
+    async with _slot_lock:
+        _slot = None
+        _busy = False
+    return {"ok": True}
+
+
 @app.get("/fetch-predictions", dependencies=[Depends(require_iot_key)])
 async def fetch_predictions():
     """IoT cihazi icin slot'taki prediction'i hafif formatta dondurur ve temizler."""
