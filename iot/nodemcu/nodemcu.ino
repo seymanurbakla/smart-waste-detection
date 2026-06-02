@@ -80,6 +80,8 @@ const size_t BIN_COUNT = sizeof(bins) / sizeof(bins[0]);
 
 bool servoBusy = false;
 uint32_t backoffMs = POLL_MS;
+uint32_t pollCount = 0;
+uint8_t  lastStationNum = 0;
 
 // --- Servo kontrol ---
 
@@ -142,26 +144,47 @@ void setupAccessPoint() {
 
 // --- HTTP polling ---
 
+// Station sayisi degisirse log bas.
+void logStationChange() {
+  uint8_t n = WiFi.softAPgetStationNum();
+  if (n != lastStationNum) {
+    Serial.printf("[AP] station sayisi %u -> %u\n", lastStationNum, n);
+    lastStationNum = n;
+  }
+}
+
 // true: HTTP basarili (cevap parse edildi veya slot bos). false: tekrar dene.
 bool fetchPrediction(String& outBin) {
   outBin = "";
+  pollCount++;
 
-  // Client bagli mi?
-  if (WiFi.softAPgetStationNum() == 0) {
-    Serial.println("[HTTP] AP'ye bagli client yok, atlandi");
+  uint8_t stations = WiFi.softAPgetStationNum();
+  Serial.printf("[poll #%u] uptime=%lu ms, stations=%u, free heap=%u\n",
+                pollCount, millis(), stations, ESP.getFreeHeap());
+
+  if (stations == 0) {
+    Serial.println("[poll] -> bagli client yok, istek atilmadi");
     return false;
   }
+
+  Serial.printf("[poll] -> GET %s\n", BACKEND_URL);
 
   WiFiClient client;
   HTTPClient http;
   http.setTimeout(5000);
+
+  uint32_t t0 = millis();
   if (!http.begin(client, BACKEND_URL)) {
     Serial.println("[HTTP] begin basarisiz");
     return false;
   }
   http.addHeader("X-API-Key", API_KEY);
+  Serial.println("[HTTP] header eklendi (X-API-Key)");
 
   int code = http.GET();
+  uint32_t dt = millis() - t0;
+  Serial.printf("[HTTP] response: code=%d, sure=%lu ms\n", code, dt);
+
   if (code <= 0) {
     Serial.printf("[HTTP] hata: %s\n", http.errorToString(code).c_str());
     http.end();
@@ -174,22 +197,33 @@ bool fetchPrediction(String& outBin) {
   }
   if (code != 200) {
     Serial.printf("[HTTP] beklenmeyen kod %d\n", code);
+    String body = http.getString();
+    Serial.printf("[HTTP] body: %s\n", body.c_str());
     http.end();
     return false;
   }
 
   String body = http.getString();
   http.end();
+  Serial.printf("[HTTP] 200 OK, body=%s\n", body.c_str());
 
   JsonDocument doc;
-  if (deserializeJson(doc, body)) {
-    Serial.println("[JSON] parse hatasi");
+  DeserializationError err = deserializeJson(doc, body);
+  if (err) {
+    Serial.printf("[JSON] parse hatasi: %s\n", err.c_str());
     return false;
   }
 
-  if (doc["prediction"].isNull()) return true;
+  if (doc["prediction"].isNull()) {
+    Serial.println("[JSON] prediction=null (slot bos)");
+    return true;
+  }
   const char* bin = doc["prediction"]["bin"];
-  if (!bin) return true;
+  if (!bin) {
+    Serial.println("[JSON] prediction var ama bin alani yok");
+    return true;
+  }
+  Serial.printf("[JSON] bin=%s\n", bin);
   outBin = bin;
   return true;
 }
@@ -214,16 +248,23 @@ void setup() {
 }
 
 void loop() {
+  logStationChange();
+
   String bin;
   bool ok = fetchPrediction(bin);
 
   if (ok) {
     backoffMs = POLL_MS;
-    if (bin.length() > 0) openBin(bin.c_str());
+    if (bin.length() > 0) {
+      Serial.printf("[loop] bin '%s' islenecek\n", bin.c_str());
+      openBin(bin.c_str());
+    }
   } else {
-    backoffMs = min<uint32_t>(backoffMs * 2, 60000UL);
-    Serial.printf("[poll] backoff %u ms\n", backoffMs);
+    // Debug sirasinda backoff'u kucuk tut (max 5 sn) — uretimde 60 sn'ydi.
+    backoffMs = min<uint32_t>(backoffMs * 2, 5000UL);
+    Serial.printf("[loop] basarisiz, sonraki polling %u ms sonra\n", backoffMs);
   }
 
+  Serial.printf("[loop] %u ms uyuyor\n\n", backoffMs);
   delay(backoffMs);
 }
